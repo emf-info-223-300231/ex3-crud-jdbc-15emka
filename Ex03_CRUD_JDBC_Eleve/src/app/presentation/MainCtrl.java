@@ -2,6 +2,7 @@ package app.presentation;
 
 import app.beans.Personne;
 import app.exceptions.MyDBException;
+import app.helpers.DateTimeLib;
 import app.helpers.JfxPopup;
 import app.workers.DbWorker;
 import java.net.URL;
@@ -15,6 +16,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.DatePicker;
 import java.io.File;
 import app.workers.DbWorkerItf;
+import app.workers.PersonneManager;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Platform;
@@ -34,6 +36,7 @@ public class MainCtrl implements Initializable {
   final static private TypesDB DB_TYPE = TypesDB.MYSQL;
 
   private DbWorkerItf dbWrk;
+  private PersonneManager manPers;
   private boolean modeAjout;
 
   @FXML
@@ -75,60 +78,96 @@ public class MainCtrl implements Initializable {
   @Override
   public void initialize(URL url, ResourceBundle rb) {
     dbWrk = new DbWorker();
+    manPers = new PersonneManager();
+      rendreVisibleBoutonsDepl(true);
     ouvrirDB();
   }
 
   @FXML
   public void actionPrevious(ActionEvent event) {
-    try {
-      afficherPersonne(dbWrk.precedentPersonne());
-    } catch (MyDBException ex) {
-      JfxPopup.displayError("ERREUR", "Une erreur s'est produite", ex.getMessage());
-    }
+      afficherPersonne(manPers.precedentPersonne());
   }
 
   @FXML
   public void actionNext(ActionEvent event) {
-    try {
-      afficherPersonne(dbWrk.suivantPersonne());
-    } catch (MyDBException ex) {
-      JfxPopup.displayError("ERREUR", "Une erreur s'est produite", ex.getMessage());
-    }
+      afficherPersonne(manPers.suivantPersonne());
   }
   
   @FXML
   private void actionEnd(ActionEvent event) {
+      afficherPersonne(manPers.finPersonne());
   }
 
   @FXML
   private void debut(ActionEvent event) {
+      afficherPersonne(manPers.debutPersonne());
   }
 
   @FXML
   private void menuAjouter(ActionEvent event) {
+      effacerContenuChamps();
+      rendreVisibleBoutonsDepl(false);
+      modeAjout = true;
+      
   }
   
 
   @FXML
   private void menuModifier(ActionEvent event) {
+      rendreVisibleBoutonsDepl(false);
+      modeAjout = false;
   }
 
   @FXML
-  private void menuEffacer(ActionEvent event) {
-
+  private void menuEffacer(ActionEvent event) throws MyDBException {
+      dbWrk.effacer(manPers.courantPersonne());
+      effacerContenuChamps();
   }
 
   @FXML
   private void menuQuitter(ActionEvent event) {
+      quitter();
   }
 
   @FXML
   private void annulerPersonne(ActionEvent event) {
+      afficherPersonne(manPers.courantPersonne());
+      rendreVisibleBoutonsDepl(true);
   }
 
   @FXML
-  private void sauverPersonne(ActionEvent event) {
-
+  private void sauverPersonne(ActionEvent event) throws MyDBException {
+      if (modeAjout){
+          Personne newPersonne = new Personne( 
+                  txtNom.getText(), 
+                  txtPrenom.getText(),
+                  DateTimeLib.localDateToDate(dateNaissance.getValue()), 
+                  Integer.valueOf(txtNo.getText()), 
+                  txtRue.getText(), 
+                  Integer.valueOf(txtNPA.getText()), 
+                  txtLocalite.getText(), 
+                  ckbActif.isSelected(), 
+                  Double.valueOf(txtSalaire.getText()), 
+                  DateTimeLib.getToday());
+          dbWrk.creer(newPersonne);
+          manPers.setPersonnes(dbWrk.lirePersonnes());
+          
+      }else{
+          Personne p = manPers.courantPersonne();
+          p.setNom(txtNom.getText());
+          p.setPrenom(txtPrenom.getText());
+          p.setDateNaissance(DateTimeLib.localDateToDate(dateNaissance.getValue()));
+          p.setNoRue(Integer.valueOf(txtNo.getText()));
+          p.setRue(txtRue.getText());
+          p.setNpa(Integer.valueOf(txtNPA.getText()));
+          p.setLocalite(txtLocalite.getText());
+          p.setActif(ckbActif.isSelected());
+          p.setSalaire(Double.valueOf(txtSalaire.getText()));
+          p.setDateModif(DateTimeLib.getToday());
+          dbWrk.modifier(p);
+      }
+      afficherPersonne(manPers.courantPersonne());
+      rendreVisibleBoutonsDepl(true);
   }
 
   public void quitter() {
@@ -147,6 +186,14 @@ public class MainCtrl implements Initializable {
     if (p != null) {
       txtPrenom.setText(p.getPrenom());
       txtNom.setText(p.getNom());
+      txtPK.setText(String.valueOf(p.getPkPers()));
+      dateNaissance.setValue(DateTimeLib.dateToLocalDate(p.getDateNaissance()));
+      txtNo.setText(String.valueOf(p.getNoRue()));
+      txtRue.setText(p.getRue());
+      txtNPA.setText(String.valueOf(p.getNpa()));
+      txtLocalite.setText(p.getLocalite());
+      txtSalaire.setText(String.valueOf(p.getSalaire()));
+      ckbActif.setSelected(p.isActif());
     }
   }
 
@@ -166,7 +213,8 @@ public class MainCtrl implements Initializable {
           System.out.println("Base de données pas définie");
       }
       System.out.println("------- DB OK ----------");
-      afficherPersonne(dbWrk.precedentPersonne());
+      manPers.setPersonnes(dbWrk.lirePersonnes());
+        afficherPersonne(manPers.courantPersonne());
     } catch (MyDBException ex) {
       JfxPopup.displayError("ERREUR", "Une erreur s'est produite", ex.getMessage());
       System.exit(1);
