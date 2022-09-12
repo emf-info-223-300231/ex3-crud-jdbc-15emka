@@ -26,7 +26,7 @@ public class PersonneManager {
         return listePersonnes.get(index);
     }
     public Personne suivantPersonne(){
-        if(index != listePersonnes.size()-1){
+        if(index < listePersonnes.size()-1){
             index++;
         }
         return listePersonnes.get(index);
